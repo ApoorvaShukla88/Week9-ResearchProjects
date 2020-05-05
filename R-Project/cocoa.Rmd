@@ -1,0 +1,221 @@
+---
+title: "Cocoa-Flavours"
+output: html_notebook
+---
+---
+
+##### Installing packages.
+```{r}
+# install.packages("readr")
+#install.packages("ggplot2")
+#install.packages('magrittr')
+#install.packages("dplyr")
+#install.packages("plyr")
+```
+
+##### Loading up the dataset
+
+```{r}
+library(readr)
+chocolateData <- read_csv("/Users/amishra/DEV/Week9-ResearchProjects/R-Project/flavors_of_cacao.csv")
+```
+
+```{r}
+head(chocolateData)
+```
+
+##### Connecting with database
+##### MOngoDB
+##### Calling mongolite library
+
+```{r}
+library(mongolite)
+uri <- "mongodb://apoorva:apoorva@localhost:27017/chocolate"
+con <- mongo(collection = "cocoa", db = "chocolate", url = uri)
+```
+
+##### Inserting the raw data to database for further analysis
+
+```{r}
+con$drop()
+con$insert(chocolateData)
+```
+
+##### Query The database
+
+```{r}
+library(jsonlite)
+library(datasets)
+con$count('{}')
+con$find()
+```
+
+##### Get the structure of data
+
+```{r}
+str(chocolateData)
+```
+
+##### Columns in the dataframe
+
+```{r}
+names(chocolateData)
+```
+
+##### Check if the the columns has a missing value
+
+```{r}
+sum(is.na(chocolateData))
+```
+
+##### Renaming the columns with spaces in it
+
+```{r}
+library(magrittr)
+library(dplyr)
+#library(tidyverse)
+new_chocolateData <- chocolateData %>% 
+                              rename(
+                              Makers = Company...Maker.if.known.,
+                              Recent_Review_Rating = REF
+                              )
+```
+##### Check if the change that occured or not
+```{r}
+glimpse(new_chocolateData)
+```
+##### Remove the % sign for annalysis
+```{r}
+new_chocolateData$Cocoa.Percent <- sapply(new_chocolateData$Cocoa.Percent, 
+                                          function(x) gsub("%", "", x))
+new_chocolateData
+```
+
+```{r}
+new_chocolateData <- type.convert(new_chocolateData)
+class(new_chocolateData)
+str(new_chocolateData)
+```
+
+##### Begin Analysis 
+##### Average Rating over the years
+
+```{r}
+library(magrittr)
+library(dplyr)
+#detach('package':plyr, unload=TRUE)
+avg_ratings <- new_chocolateData %>% 
+  group_by(Review.Date) %>% 
+ summarise(avg_ratings = mean(Rating), n_ratings = n())# Summary stats
+avg_ratings
+```
+```{r}
+conflicts()
+```
+
+
+##### Average Rating in each year
+##### aes function used.
+##### what I want to plot
+##### what will be that data used for those
+
+```{r}
+library(ggplot2)
+ggplot(data = new_chocolateData)
+ggplot(new_chocolateData, aes(x = Rating, y = Review.Date)) +
+geom_point()
+```
+##### specific bean origin
+```{r}
+unique(new_chocolateData$Broad.Bean.Origin)
+```
+##### specific bean and therir cocoa percentage
+```{r}
+library(ggplot2)
+library(magrittr)
+library(dplyr)
+# groupby rating of cocoa 5,4, 3, 2, 1 on basis of review
+group_by_bean <- new_chocolateData %>%
+  group_by(Specific.Bean.Origin.or.Bar.Name)  %>%
+  mutate(Cocoa_avg_Percent = mean(Cocoa.Percent))
+group_by_bean
+```
+##### Plot
+```{r}
+ggplot(data = new_chocolateData) +
+geom_point(mapping = aes(x = Specific.Bean.Origin.or.Bar.Name, y = Cocoa.Percent))
+```
+##### reviewers are giving less extreme scores.
+##### calculating standard deviation
+```{r}
+standard_deviations <- 
+  new_chocolateData %>% group_by(Review.Date) %>%
+  summarise(count = dplyr::n(), avg = mean(Rating), sd = sd(Rating)) 
+standard_deviations
+```
+##### extremes reviews decereased over the years 
+##### plot sd
+```{r}
+ggplot(data = standard_deviations, mapping = aes(x = Review.Date, y = sd)) +
+geom_line()
+```
+##### location of the company has an impact on the quality of the product.
+```{r}
+#library(plyr)
+library(magrittr)
+library(dplyr)
+library(ggplot2)
+group_by_loc <- new_chocolateData %>%
+  group_by(Company.Location)  %>%
+  filter(dplyr::n() > 10) %>% 
+  mutate(avg = mean(Rating)) 
+  ggplot(data = group_by_loc) + 
+  geom_boxplot(mapping = aes(reorder(Company.Location, avg), Rating, fill = avg)) + 
+  scale_fill_continuous(low = '#fffccc', high = '#fc4e2a', name = "Average rating") + 
+  coord_flip() + 
+  labs(x = 'Company Location', y = 'Rating') +
+  expand_limits(y = c(0,5))
+  group_by_loc
+```
+##### relationship between cocoa percentage and the chocolate’s rating.
+```{r}
+library(ggplot2)
+new_chocolateData %>%
+  ggplot(aes(x = Cocoa.Percent, y = Rating)) +
+  geom_jitter(alpha = .75) + 
+  coord_cartesian(ylim = c(0,5)) +
+  labs(x = 'Cocoa percentage', y = 'Rating') + 
+  theme_minimal() + 
+  geom_smooth(method = 'lm', se = FALSE, col = 'red')
+```
+##### Most frequent bean origin
+```{r}
+library(plyr)
+library(magrittr)
+library(dplyr)
+library(ggplot2)
+
+new_chocolateData %>% 
+  group_by(Broad.Bean.Origin) %>% # Group by origin
+  filter(n() > 10) %>% # Limit to those with at least 10 observations
+  mutate(count = n()) %>% # Add the count column
+  ggplot(aes(x = reorder(Broad.Bean.Origin, count))) + 
+  geom_bar() + 
+  coord_flip() + 
+  theme_minimal() + 
+  labs(x = 'Bean origin', y = 'Count', title = 'Most frequently used broad bean origins')
+```
+##### origin of the bean have impact on the rating of the chocolate?
+```{r}
+new_chocolateData %>% 
+  group_by(Broad.Bean.Origin) %>% 
+  filter(n() > 10) %>% # Keep only those with more than 10 observations
+  mutate(count = n()) %>%
+  ggplot() + 
+  geom_boxplot(aes(x = Broad.Bean.Origin, y = Rating)) + 
+  theme_minimal() + 
+  theme(axis.text.x = element_text(angle = 75, hjust = 1)) + 
+  labs(x = 'Broad bean origin', y = 'Rating')
+```
+
+
