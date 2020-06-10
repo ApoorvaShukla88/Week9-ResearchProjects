@@ -1,16 +1,16 @@
-# Week9-ResearchProjects
+# Week9-ResearchProjects/R/R-Studio/MongoDB/GGplots/Tableau
 DataEngineering projects
 
 Pick one tech from each of these categories, follow the intentions directly.
 
 ## New Language
 
-[New Language Topics](lang.md)
+R/R-studio
 
 ## New NoSQL Database
 
-[New NoSQL Database](dbs.md)
+MongoDB
 
 ## Data Visualization
 
-[Data Visualization](vis.md)
+Tableau
